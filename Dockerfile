@@ -18,11 +18,11 @@ COPY static ./static
 
 USER supervision
 VOLUME ["/data"]
-EXPOSE 8000
+EXPOSE 9473
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s \
-  CMD python -c "import urllib.request,sys; sys.exit(urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=4).status != 200)"
+  CMD python -c "import urllib.request,sys; sys.exit(urllib.request.urlopen('http://127.0.0.1:9473/api/health', timeout=4).status != 200)"
 
-# Proxy-headere stoles kun på, fordi porten ikke eksponeres udenfor compose-netværket (se docker-compose.yml).
-CMD ["uvicorn", "server.main:app", "--host", "0.0.0.0", "--port", "8000", \
-     "--proxy-headers", "--forwarded-allow-ips", "*", "--no-server-header"]
+# Proxy-headere stoles kun på fra adresserne i $FORWARDED_ALLOW_IPS (sættes i docker-compose.yml).
+ENV FORWARDED_ALLOW_IPS=127.0.0.1
+CMD ["uvicorn", "server.main:app", "--host", "0.0.0.0", "--port", "9473", "--proxy-headers", "--no-server-header"]

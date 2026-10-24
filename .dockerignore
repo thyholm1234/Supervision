@@ -9,5 +9,4 @@ tests
 *.db-*
 Dockerfile
 docker-compose.yml
-Caddyfile
 .env

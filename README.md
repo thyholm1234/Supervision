@@ -90,13 +90,7 @@ SUPERVISION_COOKIE_SECURE=0 .venv/bin/uvicorn server.main:app --reload --port 80
 
 ## Drift (produktion)
 
-Kør uvicorn bag en reverse proxy med TLS, fx Caddy:
-
-```
-supervision.example.dk {
-    reverse_proxy 127.0.0.1:8000
-}
-```
+Kør uvicorn bag en reverse proxy med TLS, fx nginx (se eksemplet under Docker Compose).
 
 ```bash
 .venv/bin/uvicorn server.main:app --host 127.0.0.1 --port 8000 --proxy-headers --forwarded-allow-ips 127.0.0.1
@@ -137,18 +131,46 @@ mislykkede logins, sletninger, fordelingen af brugere på antal poster og databa
 
 ## Docker Compose
 
-`docker-compose.yml` starter to containere:
-
-- `app`: uvicorn, kører som ikke-root bruger på et skrivebeskyttet filsystem uden capabilities. Data ligger i volumen `supervision-data`.
-- `caddy`: HTTPS foran appen. Appens port eksponeres ikke, så den kan kun nås gennem Caddy.
+`docker-compose.yml` starter appen i én container. Den kører som en bruger uden root-rettigheder, på et
+skrivebeskyttet filsystem og uden capabilities. Data ligger i volumen `supervision-data`. Som standard lytter appen
+på `127.0.0.1:9473`, så kun en reverse proxy på samme maskine kan nå den. Port og adresse kan ændres med
+`SUPERVISION_PORT` og `SUPERVISION_BIND` i `.env`.
 
 ```bash
-cp .env.example .env        # sæt DOMAIN=dit.domæne.dk (DNS og porte 80/443 skal pege på serveren)
+cp .env.example .env        # valgfrit
 docker compose up -d --build
 ```
 
-Med et rigtigt domæne henter Caddy automatisk et certifikat fra Let's Encrypt. Med `DOMAIN=localhost` bruges et
-lokalt certifikat, som browseren advarer om. Det er nok til at prøve appen.
+nginx foran, med TLS. `Host` skal sendes videre, ellers afviser appen skrivninger (Origin-tjek):
+
+```nginx
+server {
+    listen 443 ssl;
+    http2 on;
+    server_name supervision.example.dk;
+    ssl_certificate     /etc/letsencrypt/live/supervision.example.dk/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/supervision.example.dk/privkey.pem;
+
+    client_max_body_size 20m;   # bilag op til 15 MB + padding
+
+    location / {
+        proxy_pass http://127.0.0.1:9473;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_request_buffering off;
+    }
+}
+server {
+    listen 80;
+    server_name supervision.example.dk;
+    return 301 https://$host$request_uri;
+}
+```
+
+Appen sætter selv sikkerhedsheadere (CSP, HSTS m.fl.), så nginx skal ikke tilføje dem. `X-Forwarded-For` sættes
+til `$remote_addr`, ikke `$proxy_add_x_forwarded_for`, så klienter ikke kan forfalske deres IP over for
+rate-limiteren.
 
 ```bash
 docker compose exec app python -m server.manage make-admin <brugernavn>
