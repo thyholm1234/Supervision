@@ -135,6 +135,30 @@ Opret først en almindelig bruger i appen og forfrem den derefter:
 Panelet viser kun aggregerede tal: antal brugere, aktive pr. dag/uge/måned, logins, oprettelser, skrivninger,
 mislykkede logins, sletninger, fordelingen af brugere på antal poster og databasestørrelse.
 
+## Docker Compose
+
+`docker-compose.yml` starter to containere:
+
+- `app`: uvicorn, kører som ikke-root bruger på et skrivebeskyttet filsystem uden capabilities. Data ligger i volumen `supervision-data`.
+- `caddy`: HTTPS foran appen. Appens port eksponeres ikke, så den kan kun nås gennem Caddy.
+
+```bash
+cp .env.example .env        # sæt DOMAIN=dit.domæne.dk (DNS og porte 80/443 skal pege på serveren)
+docker compose up -d --build
+```
+
+Med et rigtigt domæne henter Caddy automatisk et certifikat fra Let's Encrypt. Med `DOMAIN=localhost` bruges et
+lokalt certifikat, som browseren advarer om. Det er nok til at prøve appen.
+
+```bash
+docker compose exec app python -m server.manage make-admin <brugernavn>
+# Backup af databasen (indholdet er krypteret):
+docker compose exec app python -c "import sqlite3; sqlite3.connect('/data/supervision.db').backup(sqlite3.connect('/data/backup.db'))"
+docker compose cp app:/data/backup.db ./supervision-backup.db
+```
+
+Opdatering: `git pull && docker compose up -d --build`.
+
 ## Tests
 
 ```bash
