@@ -132,9 +132,13 @@ mislykkede logins, sletninger, fordelingen af brugere på antal poster og databa
 ## Docker Compose
 
 `docker-compose.yml` starter appen i én container. Den kører som en bruger uden root-rettigheder, på et
-skrivebeskyttet filsystem og uden capabilities. Data ligger i volumen `supervision-data`. Som standard lytter appen
-på `127.0.0.1:9473`, så kun en reverse proxy på samme maskine kan nå den. Port og adresse kan ændres med
-`SUPERVISION_PORT` og `SUPERVISION_BIND` i `.env`.
+skrivebeskyttet filsystem og uden capabilities. Data ligger i volumen `supervision-data`. Appen lytter på port
+`9473` på alle interfaces. Port og adresse kan ændres med `SUPERVISION_PORT` og `SUPERVISION_BIND` i `.env`
+(`127.0.0.1`, hvis kun nginx på samme maskine skal kunne nå den).
+
+Kører nginx på en anden maskine, så sæt `SUPERVISION_TRUSTED_PROXIES=<nginx-IP>`. Ellers ser appen nginx' IP for alle
+brugere, og rate-limiteren rammer alle på én gang. Docker åbner porten uden om `ufw`/`firewalld`, så begræns den i
+firewallen eller hos hostingudbyderen, hvis den kun skal være åben for nginx.
 
 ```bash
 cp .env.example .env        # valgfrit
@@ -154,7 +158,7 @@ server {
     client_max_body_size 20m;   # bilag op til 15 MB + padding
 
     location / {
-        proxy_pass http://127.0.0.1:9473;
+        proxy_pass http://127.0.0.1:9473;   # eller app-værtens IP
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;

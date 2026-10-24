@@ -1,5 +1,5 @@
 # Start:  docker compose up -d --build
-# Appen lytter på 127.0.0.1:9473 – sæt en reverse proxy med TLS (fx nginx) foran. Se README.
+# Appen lytter på port 9473 på alle interfaces – sæt en reverse proxy med TLS (fx nginx) foran. Se README.
 services:
   app:
     build: .
@@ -10,11 +10,12 @@ services:
       SUPERVISION_IDLE_MINUTES: ${SUPERVISION_IDLE_MINUTES:-60}
       SUPERVISION_MAX_FILE_MB: ${SUPERVISION_MAX_FILE_MB:-15}
       SUPERVISION_QUOTA_MB: ${SUPERVISION_QUOTA_MB:-250}
-      # X-Forwarded-For stoles kun på fra compose-netværket (dvs. trafik der kommer ind via den publicerede port
-      # fra værten, fx nginx). Direkte trafik udefra beholder sin egen IP, så rate-limiting ikke kan snydes.
-      FORWARDED_ALLOW_IPS: ${SUPERVISION_SUBNET:-10.203.64.0/28}
+      # X-Forwarded-For stoles kun på fra disse adresser. Standard er compose-netværket, dvs. nginx på samme vært.
+      # Kører nginx på en anden maskine, så sæt SUPERVISION_TRUSTED_PROXIES til dens IP.
+      # Andre klienter beholder deres egen IP, så rate-limiting ikke kan snydes med en falsk header.
+      FORWARDED_ALLOW_IPS: ${SUPERVISION_TRUSTED_PROXIES:-10.203.64.0/28}
     ports:
-      - "${SUPERVISION_BIND:-127.0.0.1}:${SUPERVISION_PORT:-9473}:9473"
+      - "${SUPERVISION_BIND:-0.0.0.0}:${SUPERVISION_PORT:-9473}:9473"
     volumes:
       - supervision-data:/data
     read_only: true
