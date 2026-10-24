@@ -52,3 +52,8 @@ volumes:
 
 networks:
   internal:
+    # Fast, lille subnet, så compose ikke afhænger af Dockers standard-adressepuljer
+    # (fejlen "all predefined address pools have been fully subnetted"). Skift i .env ved konflikt.
+    ipam:
+      config:
+        - subnet: ${SUPERVISION_SUBNET:-10.203.64.0/28}
